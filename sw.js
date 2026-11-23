@@ -1,7 +1,7 @@
 // Keeps the checklist page available when the device is offline (needs HTTPS, e.g. GitHub Pages).
-const C = "fallrisk-v1";
+const C = "fallrisk-v2";
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(C).then(c => c.addAll(["./", "./index.html"])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(C).then(c => c.addAll(["./", "./index.html", "./config.js"])).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x)))).then(() => self.clients.claim()));
