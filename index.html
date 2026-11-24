@@ -116,7 +116,6 @@ tr.dt ul{margin:4px 0 0;padding-left:18px}
 <div><label class="t">Patient file no. <span class="req">*</span></label><input type="text" data-f="file" inputmode="numeric" autocomplete="off"></div>
 <div><label class="t">Checked by <span class="req">*</span></label><input type="text" data-f="by" autocomplete="off"></div></div></div>
 <div id="lists"></div>
-<div class="card"><label class="t">Notes / action needed</label><textarea rows="2" data-f="notes"></textarea></div>
 <div class="act" id="acts"></div>
 <div class="act">
 <button class="o" onclick="printOne()">Print this patient</button>
@@ -195,7 +194,7 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 function today(){const d=new Date(),p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 const unitOf=p=>p.dept==="OTHER"?String(p.other||"").trim().toUpperCase():(p.dept||"");
-function newP(prev){return{id:uid(),date:prev?prev.date:today(),dept:prev?prev.dept:"",other:prev?prev.other:"",file:"",by:prev?prev.by:"",checks:ITEMS.map(()=>false),na:ITEMS.map(()=>false),notes:"",sysDone:false,bedDone:false,skip:"",sysTs:0,bedTs:0,synced:false,sentOnce:false,rev:0}}
+function newP(prev){return{id:uid(),date:prev?prev.date:today(),dept:prev?prev.dept:"",other:prev?prev.other:"",file:"",by:prev?prev.by:"",checks:ITEMS.map(()=>false),na:ITEMS.map(()=>false),notesSys:"",notesBed:"",sysDone:false,bedDone:false,skip:"",sysTs:0,bedTs:0,synced:false,sentOnce:false,rev:0}}
 /* status: Draft (local only) | Pending bedside | Complete | Not assessed */
 const status=p=>p.skip?"Not assessed":(p.sysDone&&p.bedDone)?"Complete":p.sysDone?"Pending bedside":"Draft";
 const isBlank=p=>status(p)==="Draft"&&!String(p.file||"").trim()&&!p.checks.some(Boolean)&&!p.na.some(Boolean);
@@ -210,7 +209,7 @@ const cl=v=>v>=90?"ok":v>=75?"wn":"bad";
 const pc=v=>v==null?"—":`<b class="${cl(v)}">${v}%</b>`;
 const stc=s=>`<span class="stc ${s==="Complete"?"c":s==="Pending bedside"?"p":"n"}">${esc(s)}</span>`;
 function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&Array.isArray(o.patients)&&o.patients.length){S=o;if(!Array.isArray(S.delq))S.delq=[];
- S.patients.forEach(p=>{if(!p.id)p.id=uid();p.other=String(p.other||"").toUpperCase();p.checks=ITEMS.map((_,i)=>!!(p.checks&&p.checks[i]));p.na=ITEMS.map((_,i)=>!!(p.na&&p.na[i]));p.skip=p.skip||"";
+ S.patients.forEach(p=>{if(!p.id)p.id=uid();p.other=String(p.other||"").toUpperCase();p.checks=ITEMS.map((_,i)=>!!(p.checks&&p.checks[i]));p.na=ITEMS.map((_,i)=>!!(p.na&&p.na[i]));p.skip=p.skip||"";if(p.notesSys===undefined)p.notesSys=p.notes||"";p.notesBed=p.notesBed||"";delete p.notes;
   if(p.done!==undefined&&p.sysDone===undefined){p.sysDone=p.bedDone=!!p.done;p.sysTs=p.bedTs=p.sysTs||Date.now();if(p.done)p.synced=false}delete p.done});
  if(!(S.cur>=0&&S.cur<S.patients.length))S.cur=0}}}catch(e){}
  if(!S.patients.length)S={patients:[newP()],cur:0,delq:S.delq||[]}}
@@ -225,7 +224,7 @@ function renderLists(){
  SECS.forEach((s,si)=>{h+=`<div class="card" id="sec${si}"><h2>${esc(s.n)}</h2>`;
   s.subs.forEach(b=>{if(b.t)h+=`<div class="sub">${esc(b.t)}</div>`;
    b.i.forEach(t=>{h+=`<div class="i" id="row${k}"><label class="il"><input type="checkbox" data-k="${k}"><span>${esc(t)}</span></label><button type="button" class="nab" data-na="${k}">N/A</button></div>`;k++})});
-  h+="</div>"});
+  h+=`<label class="t" style="margin-top:12px">${si===0?"System notes":"Bedside notes"} (optional)</label><textarea rows="2" data-f="${si===0?"notesSys":"notesBed"}" placeholder="${si===0?"Notes about the system / documentation check":"Notes about the bedside check"}"></textarea></div>`});
  $("lists").innerHTML=h;
 }
 function rowUI(k){const p=S.patients[S.cur];$("row"+k).classList.toggle("na",!!p.na[k]);$("row"+k).querySelector("input").checked=!!p.checks[k];$("row"+k).querySelector(".nab").classList.toggle("on",!!p.na[k])}
@@ -328,7 +327,7 @@ async function post(obj){
  try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(obj),signal:ac.signal});
   return await r.json()}finally{clearTimeout(to)}
 }
-const rec=p=>({id:p.id,date:p.date,unit:unitOf(p),file:String(p.file).trim(),by:String(p.by).trim(),status:status(p),checks:ITEMS.map((_,k)=>p.na[k]?"2":(p.checks[k]?"1":"0")).join(""),notes:p.notes||"",sysTs:p.sysTs||0,bedTs:p.bedTs||0,reason:p.skip||""});
+const rec=p=>({id:p.id,date:p.date,unit:unitOf(p),file:String(p.file).trim(),by:String(p.by).trim(),status:status(p),checks:ITEMS.map((_,k)=>p.na[k]?"2":(p.checks[k]?"1":"0")).join(""),notesSys:p.notesSys||"",notesBed:p.notesBed||"",sysTs:p.sysTs||0,bedTs:p.bedTs||0,reason:p.skip||""});
 function pendingN(){return S.patients.filter(needSend).length+S.delq.length}
 function updSync(){
  const b=$("sync");if(!b)return;const n=pendingN();
@@ -377,16 +376,16 @@ function dashHTML(R,emptyMsg,forPrint){
  h+=`<div class="card"><h2>Where the gaps are (all departments)</h2>`+(g.length?g.map(x=>{const q=Math.round(x.m/x.a*100);return`<div class="gap"><b>${esc(x.t)}</b><div class="bar"><i style="width:${q}%"></i></div><small>Not met in ${x.m} of ${x.a} assessed (${q}%)</small></div>`}).join(""):`<div class="empty">No gaps.</div>`)+`</div>`;
  h+=`<div class="card"><h2>Patients and their evaluation</h2>${forPrint?"":`<p style="margin:0 0 6px;color:var(--mu);font-size:.8rem">Tap a row to see the unmet items.</p>`}<div class="tblw"><table><tr><th>Date</th><th>Dept</th><th>File no.</th><th>Assessor</th><th>Status</th><th>System</th><th>Bedside</th></tr>`+
   R.map(r=>{const s=rowStats(r),miss=ITEMS.filter((_,k)=>r.st[k]===0),nas=ITEMS.filter((_,k)=>r.st[k]===2);
-   return`<tr class="pr"><td>${esc(r.date)}</td><td>${esc(r.unit||"—")}</td><td>${esc(r.file)}</td><td>${esc(r.by)}</td><td>${stc(r.status)}</td><td>${pc(s.sys)}</td><td>${pc(s.bed)}</td></tr><tr class="dt"${forPrint?"":" hidden"}><td colspan="7">${r.status==="Not assessed"?`<b>Reason:</b> ${esc(r.reason||"—")}`:(miss.length?"<b>Not met:</b><ul>"+miss.map(i=>`<li>${esc(i.t)}</li>`).join("")+"</ul>":"No unmet items so far.")}${nas.length?`<div style="margin-top:4px"><b>N/A:</b> ${nas.map(i=>esc(i.t)).join("; ")}</div>`:""}${r.notes?`<div style="margin-top:6px"><b>Notes:</b> ${esc(r.notes)}</div>`:""}</td></tr>`}).join("")+`</table></div></div>`;
+   return`<tr class="pr"><td>${esc(r.date)}</td><td>${esc(r.unit||"—")}</td><td>${esc(r.file)}</td><td>${esc(r.by)}</td><td>${stc(r.status)}</td><td>${pc(s.sys)}</td><td>${pc(s.bed)}</td></tr><tr class="dt"${forPrint?"":" hidden"}><td colspan="7">${r.status==="Not assessed"?`<b>Reason:</b> ${esc(r.reason||"—")}`:(miss.length?"<b>Not met:</b><ul>"+miss.map(i=>`<li>${esc(i.t)}</li>`).join("")+"</ul>":"No unmet items so far.")}${nas.length?`<div style="margin-top:4px"><b>N/A:</b> ${nas.map(i=>esc(i.t)).join("; ")}</div>`:""}${r.notesSys?`<div style="margin-top:6px"><b>System notes:</b> ${esc(r.notesSys)}</div>`:""}${r.notesBed?`<div style="margin-top:6px"><b>Bedside notes:</b> ${esc(r.notesBed)}</div>`:""}</td></tr>`}).join("")+`</table></div></div>`;
  return h;
 }
-const localRows=()=>S.patients.filter(p=>status(p)!=="Draft").map(p=>({date:p.date,unit:unitOf(p),file:p.file,by:p.by,status:status(p),st:states(p),notes:p.notes,reason:p.skip}));
+const localRows=()=>S.patients.filter(p=>status(p)!=="Draft").map(p=>({date:p.date,unit:unitOf(p),file:p.file,by:p.by,status:status(p),st:states(p),notesSys:p.notesSys,notesBed:p.notesBed,reason:p.skip}));
 function renderSum(){$("sum").innerHTML=dashHTML(localRows(),"Nothing saved on this device yet. Save a system check or finish a patient first.")}
 
 /* ---------- Admin dashboard (data comes from the Google Sheet, password checked by the server) ---------- */
 let adminPw="",ADM=[],AF={dept:"",from:"",to:"",st:""};
 const CH={"1":1,"0":0,"2":2,"-":-1};
-function normRow(r){const s=String(r.checks||"");return{id:r.id,ts:+r.ts||0,date:String(r.date||""),unit:String(r.unit||""),file:String(r.file||""),by:String(r.by||""),status:String(r.status||"Complete"),notes:String(r.notes||""),reason:String(r.reason||""),st:ITEMS.map((_,i)=>CH[s[i]]===undefined?-1:CH[s[i]])}}
+function normRow(r){const s=String(r.checks||"");return{id:r.id,ts:+r.ts||0,date:String(r.date||""),unit:String(r.unit||""),file:String(r.file||""),by:String(r.by||""),status:String(r.status||"Complete"),notesSys:String(r.notesSys!==undefined?r.notesSys:(r.notes||"")),notesBed:String(r.notesBed||""),reason:String(r.reason||""),st:ITEMS.map((_,i)=>CH[s[i]]===undefined?-1:CH[s[i]])}}
 async function adminLoad(pw){
  const j=await post({action:"dashboard",password:pw});
  if(!j||!j.ok)throw new Error((j&&j.error)||"Server error");
@@ -414,8 +413,8 @@ function pPatient(p){
  const st=live(p),sy=ratio(yn(st,0,B0-1)),be=ratio(yn(st,B0,N-1)),al=ratio(yn(st,0,N-1));
  let h=`<div class="pp">${pHead("Fall Risk Tracking Checklist")}<div class="ig"><div>Date: <b>${esc(p.date)}</b></div><div>Department: <b>${esc(unitOf(p))}</b></div><div>Patient file no.: <b>${esc(p.file)}</b></div><div>Checked by: <b>${esc(p.by)}</b></div><div>Status: <b>${esc(status(p))}</b>${p.skip?" — "+esc(p.skip):""}</div></div>`;
  let k=0;
- SECS.forEach(s=>{h+=`<h2>${esc(s.n)}</h2>`;s.subs.forEach(b=>{if(b.t)h+=`<div><b>${esc(b.t)}</b></div>`;b.i.forEach(t=>{h+=`<div class="pi"><span class="bx" style="width:${p.na[k]?"30px":"13px"};font-size:${p.na[k]?"8px":"11px"}">${p.na[k]?"N/A":(p.checks[k]?"✓":"")}</span><span>${esc(t)}</span></div>`;k++})})});
- h+=`<div class="tot">Compliance: ${al==null?"—":al+"%"} &nbsp; (System ${sy==null?"—":sy+"%"} · Bedside ${be==null?"—":be+"%"}; N/A items are excluded)</div><h2>Notes / action needed</h2><div>${esc(p.notes)||"&nbsp;"}</div></div>`;
+ SECS.forEach((s,si)=>{h+=`<h2>${esc(s.n)}</h2>`;s.subs.forEach(b=>{if(b.t)h+=`<div><b>${esc(b.t)}</b></div>`;b.i.forEach(t=>{h+=`<div class="pi"><span class="bx" style="width:${p.na[k]?"30px":"13px"};font-size:${p.na[k]?"8px":"11px"}">${p.na[k]?"N/A":(p.checks[k]?"✓":"")}</span><span>${esc(t)}</span></div>`;k++})});h+=`<div style="margin:6px 0 4px"><b>${si===0?"System notes":"Bedside notes"}:</b> ${esc(si===0?p.notesSys:p.notesBed)||"—"}</div>`});
+ h+=`<div class="tot">Compliance: ${al==null?"—":al+"%"} &nbsp; (System ${sy==null?"—":sy+"%"} · Bedside ${be==null?"—":be+"%"}; N/A items are excluded)</div></div>`;
  return h;
 }
 function doPrint(h){$("pa").innerHTML=h;setTimeout(()=>window.print(),60)}
